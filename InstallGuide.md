@@ -21,48 +21,15 @@ Vzhledem k tomu, že máte na novém počítači jen VS Code, musíme nejdříve
    ```
    *(Pokud se vás zeptá na potvrzení, napište `A` nebo `Y` a dejte Enter).*
 
-### Krok 3: Vytvoření projektu a stažení knihoven
-Do terminálu postupně zadávejte tyto příkazy (po každém stiskněte Enter a počkejte, až se dokončí):
+### Krok 3: Stažení knihoven
+Ve VS Code otevřete složku **TeamGymScoring** (tento repozitář) a v terminálu zadejte:
+```bash
+npm install
+```
+Projekt už obsahuje vše potřebné (Vite, React, Tailwind, Firebase, ikony), nic dalšího vytvářet nemusíte.
 
-1. Vytvoření kostry aplikace:
-   ```bash
-   npx create-vite@latest teamgym --template react
-   ```
-2. Přesunutí do nové složky:
-   ```bash
-   cd teamgym
-   ```
-3. Stažení základních modulů:
-   ```bash
-   npm install
-   ```
-4. Stažení Firebase, Ikon a vzhledu (Tailwind):
-   ```bash
-   npm install firebase lucide-react @tailwindcss/vite
-   ```
-
-### Krok 4: Nastavení vzhledu (Tailwind)
-Ve VS Code si vlevo otevřete složku `teamgym`, kterou jste právě vytvořili.
-
-1. Otevřete soubor **`vite.config.js`**, smažte jeho obsah a vložte toto:
-   ```javascript
-   import { defineConfig } from 'vite'
-   import react from '@vitejs/plugin-react'
-   import tailwindcss from '@tailwindcss/vite'
-
-   export default defineConfig({
-     plugins: [react(), tailwindcss()],
-   })
-   ```
-2. Otevřete soubor **`src/index.css`**, smažte vše uvnitř a vložte jen jeden řádek:
-   ```css
-   @import "tailwindcss";
-   ```
-
-### Krok 5: Vložení hlavního kódu a Firebase klíčů
-1. Otevřete soubor **`src/App.jsx`**, úplně všechno v něm smažte.
-2. Vložte do něj **kompletní kód**.
-3. Hned na začátku vloženého kódu (sekce `1. NASTAVENÍ A HESLA`) najděte proměnnou `firebaseConfig` a vložte do ní vaše klíče z Firebase databáze. Ten se najde v nastavení v sekci General, podsekci Your app.
+### Krok 4: Vložení Firebase klíčů
+Ve složce projektu zkopírujte soubor **`.env.example`** jako **`.env.local`** a doplňte do něj klíče z Firebase (Nastavení projektu → General → Your apps). Soubor `.env.local` se do gitu neukládá.
 
 ---
 
@@ -71,7 +38,7 @@ Ve VS Code si vlevo otevřete složku `teamgym`, kterou jste právě vytvořili.
 Kód máme připravený, nyní musíme aplikaci zapnout tak, aby byla viditelná i pro ostatní počítače v hale.
 
 ### Krok 1: Spuštění serveru
-V terminálu ve VS Code (ujistěte se, že jste stále ve složce `teamgym`) zadejte tento příkaz:
+V terminálu ve VS Code (ujistěte se, že jste ve složce `TeamGymScoring`) zadejte tento příkaz:
 ```bash
 npm run dev -- --host
 ```
