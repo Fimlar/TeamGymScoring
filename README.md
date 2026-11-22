@@ -24,3 +24,10 @@ Pokud zakládáte nový Firebase projekt: přidejte webovou aplikaci, databázi 
 ## Limit součtu D
 - V *Nastavení závodu → 3. Limit součtu D* lze u vybraných kategorií zapnout maximální součet D (akrobacie + trampolína).
 - Při překročení se podle nastavení buď rozdíl automaticky přičte do PEN SJ, nebo se tým ve výsledcích přesune do zvolené kategorie.
+
+## Tisk výsledků (verze 2.1)
+- **Tisk průběžných výsledků** – v hlavičce je čas, ke kterému výsledky platí.
+- **Tisk finálních výsledků** – nadpis „Konečné výsledky", na poslední straně seznam rozhodčích E1. Před tiskem upozorní na týmy bez kompletních známek.
+- Hlavička (loga, název, datum) i patička (ředitelka závodu, hlavní rozhodčí) jsou na každé tištěné straně.
+- Rozhodčí E1 se zadávají u jednotlivých panelů v *Nastavení závodu* (více jmen oddělte čárkou).
+- V *Editaci dat* je nejnovější známka nahoře a u každé je vidět čas uložení.

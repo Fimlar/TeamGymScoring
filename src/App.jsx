@@ -670,6 +670,123 @@ function LiveRow({ label, value, bad }) {
 }
 
 // ==========================================
+// TISKOVÁ SESTAVA VÝSLEDKŮ
+// ==========================================
+// Hlavička a patička jsou "position: fixed" – prohlížeč je při tisku zopakuje na každé stránce.
+// Aby nepřekryly obsah, je celý obsah uvnitř pomocné tabulky, jejíž prázdný <thead>/<tfoot>
+// (taky opakovaný na každé stránce) drží pro hlavičku a patičku volné místo.
+const buildResultsPrintHtml = ({ categories, panels, final, baseUrl, printedAt }) => {
+  const red = 'color: #ef4444;';
+  const eCell = (s) => `<td style="${s && !s.eValid ? red + ' font-weight: bold;' : ''}">${cz(s?.e)}</td>`;
+  const appCells = (s) => `<td>${cz(s?.c)}</td><td>${cz(s?.d)}</td>${eCell(s)}<td style="${red}">${cz(s?.pen)}</td><td class="total-col">${cz(s?.total)}</td>`;
+  const time = printedAt.toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const title = final ? 'Konečné výsledky' : `Průběžné výsledky – stav k ${time}`;
+
+  const categoryHtml = categories.map(([category, list]) => `
+    <div class="category-block">
+      <div class="category-title">${escapeHtml(category)}</div>
+      <table class="results">
+        <thead>
+          <tr>
+            <th rowspan="2" style="width: 25px;">Poř.</th>
+            <th rowspan="2" style="width: 30px;">Č.</th>
+            <th rowspan="2" class="team-name" style="width: 250px;">Družstvo</th>
+            <th colspan="5" class="apparatus-header">Akrobacie</th>
+            <th colspan="5" class="apparatus-header">Trampolína</th>
+            <th rowspan="2" style="width: 40px;">PEN<br>SJ</th>
+            <th rowspan="2" class="final-total" style="width: 60px;">Výsledek</th>
+          </tr>
+          <tr>
+            <th>C</th><th>D</th><th>E</th><th>PEN</th><th class="total-col">Celkem</th>
+            <th>C</th><th>D</th><th>E</th><th>PEN</th><th class="total-col">Celkem</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${list.map((t) => `<tr>
+            <td class="rank">${t.rank}</td>
+            <td>${escapeHtml(t.teamNumber)}</td>
+            <td class="team-name">${escapeHtml(t.teamName)}${t.dLimit.movedFrom ? `<br><span class="note">(přesunuto z kat. ${escapeHtml(t.dLimit.movedFrom)})</span>` : ''}</td>
+            ${appCells(t.Akrobacie)}
+            ${appCells(t.Trampolína)}
+            <td style="${red}">${t.penSJ > 0 ? cz(fmt3(t.penSJ)) : ''}</td>
+            <td class="final-total">${cz(t.finalTotal)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+
+  // Poslední strana finálních výsledků: seznam rozhodčích E1 podle panelů
+  const judgePanels = panels.filter((p) => p.e1Judge);
+  const judgesHtml = final ? `
+    <div class="judges-page">
+      <div class="category-title">Rozhodčí E1</div>
+      ${judgePanels.length ? `
+        <table class="results judges">
+          <thead><tr><th class="team-name">Panel</th><th style="width: 120px;">Nářadí</th><th class="team-name">Rozhodčí E1</th></tr></thead>
+          <tbody>
+            ${judgePanels.map((p) => `<tr><td class="team-name">${escapeHtml(p.name)}</td><td>${escapeHtml(p.apparatus)}</td><td class="team-name">${escapeHtml(p.e1Judge)}</td></tr>`).join('')}
+          </tbody>
+        </table>` : '<p>Rozhodčí E1 nebyli zadáni.</p>'}
+    </div>` : '';
+
+  return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>${escapeHtml(title)} – ${escapeHtml(COMPETITION.name)}</title>
+    <style>
+      @page { size: A4 landscape; margin: 10mm; }
+      body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+      .page-header { position: fixed; top: 0; left: 0; right: 0; height: 80px; background: white; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1e3a8a; box-sizing: border-box; padding-bottom: 8px; }
+      .page-header .left { display: flex; align-items: center; gap: 20px; }
+      .page-header img { height: 60px; object-fit: contain; }
+      .page-header h1 { margin: 0; font-size: 22px; color: #1e3a8a; text-transform: uppercase; }
+      .page-header h2 { margin: 0; font-size: 14px; color: #64748b; font-weight: normal; }
+      .page-header .doc-title { font-size: 16px; font-weight: bold; color: #1e3a8a; text-align: right; }
+      .page-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 30px; background: white; display: flex; justify-content: space-between; align-items: flex-end; font-size: 12px; font-weight: bold; color: #1e3a8a; border-top: 1px solid #cbd5e1; box-sizing: border-box; padding-top: 6px; }
+      .header-space { height: 95px; }
+      .footer-space { height: 40px; }
+
+      table.layout { width: 100%; border-collapse: collapse; }
+      table.layout > thead > tr > td, table.layout > tfoot > tr > td, table.layout > tbody > tr > td { border: none; padding: 0; }
+
+      .category-block { margin-bottom: 30px; }
+      .category-title { font-size: 18px; font-weight: bold; margin-bottom: 8px; color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; break-after: avoid; page-break-after: avoid; }
+      table.results { width: 100%; border-collapse: collapse; font-size: 11px; }
+      table.results tr { break-inside: avoid; page-break-inside: avoid; }
+      table.results th, table.results td { border: 1px solid #cbd5e1; padding: 5px 4px; text-align: center; }
+      table.results th { background-color: #f1f5f9; font-weight: bold; color: #334155; }
+      .apparatus-header { background-color: #e2e8f0 !important; letter-spacing: 0.5px; text-transform: uppercase; }
+      .team-name { text-align: left !important; font-weight: bold; padding-left: 8px !important; font-size: 12px; }
+      .note { font-weight: normal; font-size: 10px; color: #64748b; }
+      .total-col { font-weight: bold; background-color: #f8fafc; }
+      .final-total { font-weight: bold; background-color: #e0e7ff !important; font-size: 12px; color: #1e3a8a; }
+      .rank { font-weight: bold; font-size: 14px; background-color: #1e3a8a; color: white; }
+      .judges-page { break-before: page; page-break-before: always; }
+      table.judges { font-size: 13px; max-width: 800px; }
+      table.judges td { padding: 8px; }
+    </style></head><body>
+    <div class="page-header">
+      <div class="left">
+        <img src="${baseUrl}/logo-klub.png" alt="Logo klubu">
+        <div><h1>${escapeHtml(COMPETITION.name)}</h1><h2>${escapeHtml(COMPETITION.date)}</h2></div>
+      </div>
+      <div class="left">
+        <div class="doc-title">${escapeHtml(title)}</div>
+        <img src="${baseUrl}/logo-praha.png" alt="Praha">
+      </div>
+    </div>
+    <div class="page-footer">
+      <div>Ředitelka závodu: ${escapeHtml(COMPETITION.director)}</div>
+      <div>Hlavní rozhodčí: ${escapeHtml(COMPETITION.headJudge)}</div>
+    </div>
+    <table class="layout">
+      <thead><tr><td><div class="header-space"></div></td></tr></thead>
+      <tfoot><tr><td><div class="footer-space"></div></td></tr></tfoot>
+      <tbody><tr><td>${categoryHtml}${judgesHtml}</td></tr></tbody>
+    </table>
+    <script>window.onload = function () { setTimeout(function () { window.print(); }, 500); };</script>
+  </body></html>`;
+};
+
+// ==========================================
 // 5. ROZHRANÍ PRO ADMINISTRÁTORA
 // ==========================================
 function AdminPanel({ config, scores, scoreMap, requests }) {
@@ -755,86 +872,22 @@ function AdminPanel({ config, scores, scoreMap, requests }) {
     URL.revokeObjectURL(link.href);
   };
 
-  const exportToPDF = () => {
+  const printResults = (final) => {
     if (visibleCategories.length === 0) { alert('Vyberte alespoň jednu kategorii k tisku.'); return; }
-    const baseUrl = window.location.origin;
-    const red = 'color: #ef4444;';
-    const eCell = (s) => `<td style="${s && !s.eValid ? red + ' font-weight: bold;' : ''}">${cz(s?.e)}</td>`;
-    const appCells = (s) => `<td>${cz(s?.c)}</td><td>${cz(s?.d)}</td>${eCell(s)}<td style="${red}">${cz(s?.pen)}</td><td class="total-col">${cz(s?.total)}</td>`;
 
-    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Výsledky ${escapeHtml(COMPETITION.name)}</title>
-      <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; margin: 0; padding: 15px; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 20px; }
-        .header-left, .header-right { display: flex; align-items: center; gap: 20px; }
-        .header h1 { margin: 0; font-size: 24px; color: #1e3a8a; text-transform: uppercase; }
-        .header h2 { margin: 0; font-size: 16px; color: #64748b; font-weight: normal; }
-        .category-block { margin-bottom: 35px; }
-        .category-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; page-break-after: avoid; }
-        table { width: 100%; border-collapse: collapse; font-size: 11px; page-break-inside: auto; }
-        tr { page-break-inside: avoid; page-break-after: auto; }
-        thead { display: table-header-group; }
-        tfoot { display: table-footer-group; }
-        th, td { border: 1px solid #cbd5e1; padding: 5px 4px; text-align: center; }
-        th { background-color: #f1f5f9; font-weight: bold; color: #334155; }
-        .apparatus-header { background-color: #e2e8f0; letter-spacing: 0.5px; text-transform: uppercase; }
-        .team-name { text-align: left; font-weight: bold; padding-left: 8px; font-size: 12px; }
-        .total-col { font-weight: bold; background-color: #f8fafc; }
-        .final-total { font-weight: bold; background-color: #e0e7ff; font-size: 12px; color: #1e3a8a; }
-        .rank { font-weight: bold; font-size: 14px; background-color: #1e3a8a; color: white; }
-        .print-footer { position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; color: #1e3a8a; background-color: white; padding: 10px 15px; box-sizing: border-box; height: 40px; z-index: 1000; }
-        .footer-space { height: 40px; }
-        @media print {
-          @page { size: A4 landscape; margin: 10mm; }
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; }
-        }
-      </style></head><body>
-      <div class="print-footer">
-        <div>Ředitelka závodu: ${escapeHtml(COMPETITION.director)}</div>
-        <div>Hlavní rozhodčí: ${escapeHtml(COMPETITION.headJudge)}</div>
-      </div>
-      <div class="header">
-        <div class="header-left">
-          <img src="${baseUrl}/logo-klub.png" alt="Logo klubu" style="height: 60px; object-fit: contain;">
-          <div><h1>${escapeHtml(COMPETITION.name)}</h1><h2>${escapeHtml(COMPETITION.date)}</h2></div>
-        </div>
-        <div class="header-right"><img src="${baseUrl}/logo-praha.png" alt="Praha" style="height: 60px; object-fit: contain;"></div>
-      </div>`;
+    if (final) {
+      // Před finálním tiskem upozorníme na chybějící známky a nevyplněné rozhodčí E1
+      const missing = visibleCategories.flatMap(([, list]) => list)
+        .filter((t) => !t.Akrobacie || !t.Trampolína).map((t) => t.teamNumber);
+      const problems = [];
+      if (missing.length) problems.push(`Týmy bez kompletních známek: ${missing.join(', ')}`);
+      if (!panels.some((p) => p.e1Judge)) problems.push('Nejsou vyplnění žádní rozhodčí E1 (Nastavení závodu → panely)');
+      if (problems.length && !window.confirm(`${problems.join('\n')}\n\nPřesto vytisknout finální výsledky?`)) return;
+    }
 
-    visibleCategories.forEach(([category, list]) => {
-      html += `<div class="category-block"><div class="category-title">${escapeHtml(category)}</div><table>
-        <thead>
-          <tr>
-            <th rowspan="2" style="width: 25px;">Poř.</th>
-            <th rowspan="2" style="width: 30px;">Č.</th>
-            <th rowspan="2" class="team-name" style="width: 250px;">Družstvo</th>
-            <th colspan="5" class="apparatus-header">Akrobacie</th>
-            <th colspan="5" class="apparatus-header">Trampolína</th>
-            <th rowspan="2" style="width: 40px;">PEN<br>SJ</th>
-            <th rowspan="2" class="final-total" style="width: 60px;">Výsledek</th>
-          </tr>
-          <tr>
-            <th>C</th><th>D</th><th>E</th><th>PEN</th><th class="total-col">Celkem</th>
-            <th>C</th><th>D</th><th>E</th><th>PEN</th><th class="total-col">Celkem</th>
-          </tr>
-        </thead><tbody>`;
-      list.forEach((t) => {
-        html += `<tr>
-          <td class="rank">${t.rank}</td>
-          <td>${escapeHtml(t.teamNumber)}</td>
-          <td class="team-name">${escapeHtml(t.teamName)}${t.dLimit.movedFrom ? `<br><span style="font-weight: normal; font-size: 10px; color: #64748b;">(přesunuto z kat. ${escapeHtml(t.dLimit.movedFrom)})</span>` : ''}</td>
-          ${appCells(t.Akrobacie)}
-          ${appCells(t.Trampolína)}
-          <td style="${red}">${t.penSJ > 0 ? cz(fmt3(t.penSJ)) : ''}</td>
-          <td class="final-total">${cz(t.finalTotal)}</td>
-        </tr>`;
-      });
-      // Neviditelný řádek v patičce tabulky drží místo pro pevnou patičku stránky
-      html += `</tbody><tfoot><tr><td colspan="15" style="border: none; padding: 0;"><div class="footer-space">&nbsp;</div></td></tr></tfoot></table></div>`;
+    const html = buildResultsPrintHtml({
+      categories: visibleCategories, panels, final, baseUrl: window.location.origin, printedAt: new Date(),
     });
-
-    html += `<script>window.onload = function () { setTimeout(function () { window.print(); }, 500); };</script></body></html>`;
-
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(html);
@@ -903,7 +956,8 @@ function AdminPanel({ config, scores, scoreMap, requests }) {
               <h2 className="text-xl font-bold text-slate-800">Průběžné výsledky</h2>
               <div className="flex flex-wrap gap-3">
                 <button onClick={exportAllCSV} className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition-colors"><Download size={16} /> Export (CSV)</button>
-                <button onClick={exportToPDF} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition-colors"><Printer size={18} /> Vytisknout zobrazené do PDF</button>
+                <button onClick={() => printResults(false)} className="bg-white border border-emerald-600 text-emerald-700 hover:bg-emerald-50 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition-colors"><Printer size={18} /> Tisk průběžných výsledků</button>
+                <button onClick={() => printResults(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition-colors"><Printer size={18} /> Tisk finálních výsledků</button>
               </div>
             </div>
 
@@ -1100,6 +1154,7 @@ function StartListConfig({ teams, panels, categoryRules }) {
     try {
       const newPanels = draftPanels.map((p) => ({
         id: p.id, name: p.name.trim(), apparatus: p.apparatus, eJudges: normalizeEJudges(p.eJudges), order: parseOrder(p.orderText),
+        e1Judge: String(p.e1Judge || '').trim(),
       }));
       await setDoc(configRef(), { teams: parsedTeams, panels: newPanels }, { merge: true });
       // updateDoc přepíše pravidla celá (setDoc s merge by smazaná pravidla v databázi nechal)
@@ -1170,6 +1225,8 @@ function StartListConfig({ teams, panels, categoryRules }) {
                   <input type="checkbox" checked={p.eJudges === 3} onChange={(e) => updatePanel(p.id, { eJudges: e.target.checked ? 3 : 4 })} className="w-4 h-4" />
                   Pouze 3 rozhodčí E <span className="text-xs text-slate-500">(E4 = průměr E1–E3 zaokrouhlený na 0,1)</span>
                 </label>
+                <input value={p.e1Judge || ''} onChange={(e) => updatePanel(p.id, { e1Judge: e.target.value })} className="w-full p-2 border rounded bg-white text-sm mb-3" placeholder="Rozhodčí E1 (více jmen oddělte čárkou)" />
+
                 <textarea value={p.orderText} onChange={(e) => updatePanel(p.id, { orderText: e.target.value })} className="w-full h-16 p-2 border rounded bg-white text-sm font-mono" placeholder="Pořadí: 1, 3, 5..." />
               </div>
             );
@@ -1198,9 +1255,9 @@ function RawScoresEditor({ scores }) {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
 
+  // Nejnovější známka nahoře (podle času uložení; známky bez času jsou na konci)
   const sorted = useMemo(() => [...scores].sort((a, b) =>
-    String(a.apparatus).localeCompare(String(b.apparatus), 'cs')
-    || String(a.teamNumber).localeCompare(String(b.teamNumber), 'cs', { numeric: true })), [scores]);
+    String(b.timestamp || '').localeCompare(String(a.timestamp || ''))), [scores]);
 
   const startEdit = (score) => {
     setEditingId(score.id);
@@ -1255,7 +1312,10 @@ function RawScoresEditor({ scores }) {
                   <div className="font-medium">{s.apparatus}</div>
                   <div className="text-xs text-slate-400">{s.panelName || '—'}{eJudges === 3 ? ' • 3 E' : ''}</div>
                 </td>
-                <td className="p-3 border-r border-slate-200"><b>{s.teamNumber}</b> – {s.teamName}</td>
+                <td className="p-3 border-r border-slate-200">
+                  <b>{s.teamNumber}</b> – {s.teamName}
+                  {s.timestamp && <div className="text-xs text-slate-400">uloženo {new Date(s.timestamp).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>}
+                </td>
                 <td className="p-2 text-center">{cell('e1')}</td><td className="p-2 text-center">{cell('e2')}</td><td className="p-2 text-center">{cell('e3')}</td><td className="p-2 text-center">{cell('e4')}</td>
                 <td className="p-2 text-center bg-slate-100/50 border-l">{cell('c1')}</td><td className="p-2 text-center bg-slate-100/50">{cell('c2')}</td>
                 <td className="p-2 text-center border-l">{cell('d1')}</td><td className="p-2 text-center">{cell('d2')}</td>
