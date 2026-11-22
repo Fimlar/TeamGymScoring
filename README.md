@@ -31,3 +31,8 @@ Pokud zakládáte nový Firebase projekt: přidejte webovou aplikaci, databázi 
 - Hlavička (loga, název, datum) i patička (ředitelka závodu, hlavní rozhodčí) jsou na každé tištěné straně.
 - Rozhodčí E1 se zadávají u jednotlivých panelů v *Nastavení závodu* (více jmen oddělte čárkou).
 - V *Editaci dat* je nejnovější známka nahoře a u každé je vidět čas uložení.
+
+## Rozvržení tisku (verze 2.2)
+- Tabulka kategorie se tiskne celá na jednu stránku, pokud se tam vejde.
+- Volné místo na stránce se vyplní další ještě nevytištěnou kategorií, která se tam vejde celá – pořadí kategorií v tisku se proto může lišit od pořadí na obrazovce.
+- Kategorie delší než jedna stránka se rozdělí (hlavička tabulky se na další stránce zopakuje).

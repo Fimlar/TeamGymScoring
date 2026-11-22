@@ -670,6 +670,100 @@ function LiveRow({ label, value, bad }) {
 }
 
 // ==========================================
+// ROZVRŽENÍ KATEGORIÍ NA TIŠTĚNÉ STRÁNKY
+// ==========================================
+// Cíl: celá tabulka kategorie na jedné stránce (pokud se vejde) a zbylé volné místo na stránce
+// vyplnit jinou, ještě nevytištěnou kategorií, která se tam celá vejde.
+//
+// items[i] = změřené výšky kategorie v px:
+//   height   – celý blok (nadpis + tabulka)
+//   headH    – nadpis + hlavička tabulky
+//   theadH   – hlavička tabulky (opakuje se na každé stránce, když se kategorie rozdělí)
+//   rows     – výšky jednotlivých řádků (týmů)
+//   minStart – nadpis + hlavička + 3 řádky (nejmenší rozumný začátek rozdělené kategorie)
+// cap = výška, kterou má jedna stránka pro obsah; gap = mezera mezi kategoriemi.
+// Vrací pořadí tisku: [{ index, newPage, split }].
+// POZOR: funkce se vkládá jako text do tiskového okna, nesmí tedy používat nic mimo sebe.
+function planPages(items, cap, gap) {
+  // Kategorie větší než celá stránka se musí rozdělit; spočítáme, kolik místa zabere na poslední stránce
+  const simulateSplit = (it, start) => {
+    let used = start + it.headH;
+    it.rows.forEach((h, r) => {
+      if (used + h <= cap) used += h;
+      else if (r === 0) used = it.headH + h; // nadpis se nikdy neodtrhne od první řádky
+      else used = it.theadH + h; // nová stránka začíná zopakovanou hlavičkou tabulky
+    });
+    return used;
+  };
+
+  const queue = items.map((_, i) => i);
+  const plan = [];
+  let used = 0; // kolik místa je na aktuální stránce už obsazeno
+  while (queue.length) {
+    const before = used > 0 ? gap : 0;
+    const free = cap - used - before;
+
+    // 1) První kategorie v pořadí, která se do volného místa vejde celá
+    let pos = queue.findIndex((i) => items[i].height <= free);
+    if (pos >= 0) {
+      const i = queue.splice(pos, 1)[0];
+      plan.push({ index: i, newPage: used === 0 && plan.length > 0, split: false });
+      used += before + items[i].height;
+      continue;
+    }
+
+    // 2) Nic se nevejde celé: kategorie delší než stránka může začít tady a pokračovat dál
+    pos = queue.findIndex((i) => items[i].height > cap);
+    if (pos >= 0 && (used === 0 || items[queue[pos]].minStart <= free)) {
+      const i = queue.splice(pos, 1)[0];
+      plan.push({ index: i, newPage: used === 0 && plan.length > 0, split: true });
+      used = simulateSplit(items[i], used + before);
+      continue;
+    }
+
+    // 3) Jinak začneme novou stránku
+    used = 0;
+  }
+  return plan;
+}
+
+// Běží v tiskovém okně: změří kategorie, rozvrhne je pomocí planPages a přeskládá je.
+// POZOR: také se vkládá jako text, nesmí používat nic mimo sebe (planPages dostane jako parametr).
+function arrangeCategories(plan) {
+  const box = document.getElementById('categories');
+  if (!box || box.children.length === 0) return;
+  const blocks = Array.from(box.children);
+  const h = (el) => el.getBoundingClientRect().height;
+  const cssPx = (value) => {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:absolute;visibility:hidden;height:' + value;
+    document.body.appendChild(probe);
+    const px = h(probe);
+    probe.remove();
+    return px;
+  };
+
+  // A4 na šířku = 210 mm, okraje 2 × 10 mm → 190 mm; odečteme místo pro hlavičku, patičku a rezervu
+  const cap = cssPx('190mm') - h(document.querySelector('.header-space')) - h(document.querySelector('.footer-space')) - 15;
+  const gap = parseFloat(getComputedStyle(blocks[0]).marginBottom) || 0;
+
+  const items = blocks.map((el) => {
+    const table = el.querySelector('table');
+    const thead = table.querySelector('thead');
+    const rows = Array.from(table.querySelectorAll('tbody > tr')).map(h);
+    const headH = table.getBoundingClientRect().top - el.getBoundingClientRect().top + h(thead);
+    return { height: h(el), headH, theadH: h(thead), rows, minStart: headH + rows.slice(0, 3).reduce((a, b) => a + b, 0) };
+  });
+
+  plan(items, cap, gap).forEach((p) => {
+    const el = blocks[p.index];
+    el.style.breakBefore = p.newPage ? 'page' : 'auto';
+    if (p.split) el.classList.add('split');
+    box.appendChild(el); // přesune blok na konec → výsledné pořadí podle plánu
+  });
+}
+
+// ==========================================
 // TISKOVÁ SESTAVA VÝSLEDKŮ
 // ==========================================
 // Hlavička a patička jsou "position: fixed" – prohlížeč je při tisku zopakuje na každé stránce.
@@ -747,7 +841,9 @@ const buildResultsPrintHtml = ({ categories, panels, final, baseUrl, printedAt }
       table.layout { width: 100%; border-collapse: collapse; }
       table.layout > thead > tr > td, table.layout > tfoot > tr > td, table.layout > tbody > tr > td { border: none; padding: 0; }
 
-      .category-block { margin-bottom: 30px; }
+      @media screen { body { width: 277mm; margin: 0 auto; } } /* stejná šířka jako tištěná stránka, aby sedělo měření */
+      .category-block { margin-bottom: 30px; break-inside: avoid; page-break-inside: avoid; }
+      .category-block.split { break-inside: auto; page-break-inside: auto; }
       .category-title { font-size: 18px; font-weight: bold; margin-bottom: 8px; color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; break-after: avoid; page-break-after: avoid; }
       table.results { width: 100%; border-collapse: collapse; font-size: 11px; }
       table.results tr { break-inside: avoid; page-break-inside: avoid; }
@@ -780,9 +876,14 @@ const buildResultsPrintHtml = ({ categories, panels, final, baseUrl, printedAt }
     <table class="layout">
       <thead><tr><td><div class="header-space"></div></td></tr></thead>
       <tfoot><tr><td><div class="footer-space"></div></td></tr></tfoot>
-      <tbody><tr><td>${categoryHtml}${judgesHtml}</td></tr></tbody>
+      <tbody><tr><td><div id="categories">${categoryHtml}</div>${judgesHtml}</td></tr></tbody>
     </table>
-    <script>window.onload = function () { setTimeout(function () { window.print(); }, 500); };</script>
+    <script>
+      window.onload = function () {
+        try { (${arrangeCategories.toString()})(${planPages.toString()}); } catch (e) { console.error(e); }
+        setTimeout(function () { window.print(); }, 500);
+      };
+    </script>
   </body></html>`;
 };
 
