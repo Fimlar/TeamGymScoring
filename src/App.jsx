@@ -816,9 +816,9 @@ const buildResultsPrintHtml = ({ categories, panels, final, baseUrl, printedAt }
       <div class="category-title">Rozhodčí E1</div>
       ${judgePanels.length ? `
         <table class="results judges">
-          <thead><tr><th class="team-name">Panel</th><th style="width: 120px;">Nářadí</th><th class="team-name">Rozhodčí E1</th></tr></thead>
+          <thead><tr><th class="team-name">Panel</th><th class="team-name">Rozhodčí E1</th></tr></thead>
           <tbody>
-            ${judgePanels.map((p) => `<tr><td class="team-name">${escapeHtml(p.name)}</td><td>${escapeHtml(p.apparatus)}</td><td class="team-name">${escapeHtml(p.e1Judge)}</td></tr>`).join('')}
+            ${judgePanels.map((p) => `<tr><td class="team-name">${escapeHtml(p.name)}</td><td class="team-name">${escapeHtml(p.e1Judge)}</td></tr>`).join('')}
           </tbody>
         </table>` : '<p>Rozhodčí E1 nebyli zadáni.</p>'}
     </div>` : '';
@@ -947,6 +947,8 @@ function AdminPanel({ config, scores, scoreMap, requests }) {
   const toggleCategory = (cat) => setHiddenCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
   const visibleCategories = Object.entries(groupedResults).filter(([cat]) => !hiddenCategories[cat]);
   const pendingRequests = requests.filter((r) => r.status === 'pending');
+  // Aktuální název panelu (po přejmenování v nastavení se změní všude, i u starších známek a žádostí)
+  const panelName = (item) => panels.find((p) => p.id === item.panelId)?.name || item.panelName || item.apparatus;
 
   const exportAllCSV = () => {
     const q = (v) => (/[;"\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v);
@@ -1009,7 +1011,7 @@ function AdminPanel({ config, scores, scoreMap, requests }) {
             {pendingRequests.map((req) => (
               <div key={req.id} className="flex flex-wrap gap-2 justify-between items-center bg-white p-3 rounded shadow-sm border border-yellow-100">
                 <div>
-                  <span className="text-sm font-bold text-slate-700">{req.panelName || req.apparatus}</span>
+                  <span className="text-sm font-bold text-slate-700">{panelName(req)}</span>
                   <span className="text-sm text-slate-600 mx-2">chce upravit tým</span>
                   <span className="text-sm font-bold text-indigo-600">{req.teamNumber} ({req.teamName})</span>
                 </div>
@@ -1134,7 +1136,7 @@ function AdminPanel({ config, scores, scoreMap, requests }) {
           </div>
         )}
 
-        {activeTab === 'raw' && <RawScoresEditor scores={scores} />}
+        {activeTab === 'raw' && <RawScoresEditor scores={scores} panelName={panelName} />}
         {activeTab === 'config' && <StartListConfig teams={teams} panels={panels} categoryRules={categoryRules} />}
       </div>
     </div>
@@ -1315,8 +1317,9 @@ function StartListConfig({ teams, panels, categoryRules }) {
             const st = APPARATUS_STYLE[p.apparatus] || {};
             return (
               <div key={p.id} className={`p-4 rounded-xl border ${st.border} ${st.soft}`}>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Název panelu <span className="font-normal text-slate-500">(uvidí ho rozhodčí při zadávání a je i v tisku u rozhodčích E1)</span></label>
                 <div className="flex flex-wrap gap-2 items-center mb-3">
-                  <input value={p.name} onChange={(e) => updatePanel(p.id, { name: e.target.value })} className="flex-1 min-w-[160px] p-2 border rounded bg-white text-sm font-bold" placeholder="Název panelu" />
+                  <input value={p.name} onChange={(e) => updatePanel(p.id, { name: e.target.value })} className="flex-1 min-w-[160px] p-2 border rounded bg-white text-sm font-bold" placeholder="např. Panel A" />
                   <select value={p.apparatus} onChange={(e) => updatePanel(p.id, { apparatus: e.target.value })} className="p-2 border rounded bg-white text-sm">
                     {APPARATUS.map((a) => <option key={a} value={a}>{a}</option>)}
                   </select>
@@ -1352,7 +1355,7 @@ function StartListConfig({ teams, panels, categoryRules }) {
 // ==========================================
 // POHLED ADMINISTRÁTORA: Úprava surových dat
 // ==========================================
-function RawScoresEditor({ scores }) {
+function RawScoresEditor({ scores, panelName }) {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
 
@@ -1411,7 +1414,7 @@ function RawScoresEditor({ scores }) {
               <tr key={s.id} className="border-b hover:bg-slate-50">
                 <td className="p-3 text-slate-600">
                   <div className="font-medium">{s.apparatus}</div>
-                  <div className="text-xs text-slate-400">{s.panelName || '—'}{eJudges === 3 ? ' • 3 E' : ''}</div>
+                  <div className="text-xs text-slate-400">{panelName(s) || '—'}{eJudges === 3 ? ' • 3 E' : ''}</div>
                 </td>
                 <td className="p-3 border-r border-slate-200">
                   <b>{s.teamNumber}</b> – {s.teamName}
